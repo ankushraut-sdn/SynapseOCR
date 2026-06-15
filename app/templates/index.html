@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OCR Text Extractor</title>
+  <style>
+    body {
+      background: linear-gradient(to right, #74ebd5, #ACB6E5);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .card {
+      background: white;
+      padding: 40px;
+      border-radius: 15px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+      width: 86%;
+      max-width: 602px;
+      overflow: hidden;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      display: block;
+      width: 97%;
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 2px dashed #74ebd5;
+      background: #f9f9f9;
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .button-wrapper {
+      text-align: center;
+      margin-top: 10px;
+    }
+    button {
+      width: 42%;
+      display: inline-block;
+      padding: 12px;
+      border: none;
+      background-color: #6a11cb;
+      background-image: linear-gradient(315deg, #6a11cb 0%, #2575fc 74%);
+      color: white;
+      font-size: 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background-image: linear-gradient(315deg, #2575fc 0%, #6a11cb 74%);
+    }
+    .download-btn {
+      background-color: #00c851;
+      background-image: linear-gradient(315deg, #00c851 0%, #007e33 74%);
+    }
+    
+    .download-btn:hover {
+      background-image: linear-gradient(315deg, #007e33 0%, #00c851 74%);
+    }
+    
+    .loading {
+      text-align: center;
+      font-size: 16px;
+      color: #666;
+      margin-top: 10px;
+      display: none;
+    }
+    .app-title {
+      text-align: center;
+      font-size: 36px;
+      font-weight: bold;
+      background: linear-gradient(90deg, #6a11cb, #2575fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 30px;
+    }
+    .soap-output {
+      width: 94%;
+      margin-top: 20px;
+      padding: 15px;
+      font-family: 'Segoe UI', sans-serif;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: #f9f9f9;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      overflow-y: auto;
+      max-height: 400px;
+    }
+    .soap-output strong {
+      color: #003366;
+    }
+    .soap-output:empty::before {
+      content: "Organized extracted text will appear here...";
+      color: #999;
+    }
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="app-title">smartVision OCR</h1>
+    <div class="card">
+      <h2>Download Sample Document</h2>
+      <select id="sampleDropdown">
+        <option disabled selected>Select a sample document</option>
+      </select>
+      <div class="button-wrapper">
+        <button type="button" class="download-btn" onclick="downloadSample()">Download Sample</button>
+      </div>
+
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #ccc;">
+
+      <h2>Upload Image or PDF for OCR</h2>
+      <form id="ocrForm" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".png,.jpg,.jpeg,.pdf" required>
+        <div class="button-wrapper">
+          <button type="submit">Extract Text</button>
+        </div>
+      </form>
+
+      <div class="loading" id="loading">Processing, please wait...</div>
+      <div id="output" class="soap-output"></div>
+    </div>
+  </div>
+
+  <script>
+    // Populate dropdown with available sample files
+    window.onload = () => {
+      fetch('/list-sample-docs')
+        .then(res => res.json())
+        .then(files => {
+          const dropdown = document.getElementById('sampleDropdown');
+          files.forEach(file => {
+            const option = document.createElement('option');
+            option.value = file;
+            option.text = file;
+            dropdown.appendChild(option);
+          });
+        });
+    };
+
+    // Handle sample download
+    function downloadSample() {
+      const selectedFile = document.getElementById('sampleDropdown').value;
+      if (selectedFile) {
+        const link = document.createElement('a');
+        link.href = `/download-sample/${encodeURIComponent(selectedFile)}`;
+        link.download = selectedFile;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+
+    // OCR Form Submit
+    document.getElementById('ocrForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      const loading = document.getElementById('loading');
+      const output = document.getElementById('output');
+
+      loading.style.display = 'block';
+      output.innerHTML = '';
+
+      fetch('/ocr', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        loading.style.display = 'none';
+        if (data.final_text) {
+          const formatted = data.final_text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+          output.innerHTML = formatted;
+        } else {
+          output.innerHTML = '<span style="color: red;">Error: ' + (data.error || 'Unknown error') + '</span>';
+        }
+      })
+      .catch(error => {
+        loading.style.display = 'none';
+        output.innerHTML = '<span style="color: red;">Error: ' + error + '</span>';
+      });
+    });
+  </script>
+</body>
+</html>
