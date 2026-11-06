@@ -2,9 +2,6 @@
 
 ## 1. Project Overview
 
-**Project Type:** Backend API with server-rendered frontend (FastAPI)
-**Status:** Development
-
 A document OCR web app. Upload a PDF or image, extract its text (via Tesseract OCR, with PDFs converted to images first), then clean up and structure the extracted text using Google's Gemini model.
 
 ## 2. Core Features
